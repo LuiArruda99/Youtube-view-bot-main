@@ -1,5 +1,6 @@
 let playerCount = 0;
 const players = [];
+const playbackQualities = ['small', 'medium', 'large', 'hd720'];
 
 function generateUrls() {
     const pageNumber = document.getElementById('pageNumber').value;
@@ -31,7 +32,7 @@ function generateUrls() {
             iframeContainer.appendChild(iframe);
             outputDiv.appendChild(iframeContainer);
 
-            players.push(new YT.Player(`player-${playerCount}`, {
+            const player = new YT.Player(`player-${playerCount}`, {
                 videoId: videoId,
                 playerVars: {
                     autoplay: autoplay,
@@ -41,31 +42,42 @@ function generateUrls() {
                     'onReady': onPlayerReady,
                     'onStateChange': onPlayerStateChange
                 }
-            }));
+            });
 
+            players.push(player);
             playerCount++;
         }
     } else {
-        // For non-YouTube URLs, just create iframes normally
-        for (let i = 0; i < pageNumber; i++) {
-            const iframeContainer = document.createElement('div');
-            iframeContainer.className = 'iframe-container';
-
-            const iframe = document.createElement('iframe');
-            iframe.src = url;
-
-            iframeContainer.appendChild(iframe);
-            outputDiv.appendChild(iframeContainer);
-        }
+        alert("Invalid YouTube URL.");
     }
 }
 
+// Function to play video after a delay to simulate different start times
 function onPlayerReady(event) {
-    event.target.playVideo();
+    const playDelay = Math.floor(Math.random() * 5000) + 2000; // 2 to 7 seconds
+    setTimeout(() => {
+        event.target.playVideo();
+    }, playDelay);
 }
 
+// Randomize playback quality and introduce pauses
 function onPlayerStateChange(event) {
-    if (event.data == YT.PlayerState.PLAYING) {
-        event.target.setPlaybackQuality('small'); // Set playback quality to 144p
+    if (event.data === YT.PlayerState.PLAYING) {
+        // Set random playback quality
+        const quality = playbackQualities[Math.floor(Math.random() * playbackQualities.length)];
+        event.target.setPlaybackQuality(quality);
+
+        // Randomize view duration
+        const viewDuration = Math.floor(Math.random() * 20000) + 10000; // 10 to 30 seconds
+        setTimeout(() => {
+            event.target.pauseVideo();
+
+            // Random delay before resuming video (simulate human interaction)
+            const resumeDelay = Math.floor(Math.random() * 5000) + 2000; // 2 to 7 seconds
+            setTimeout(() => {
+                event.target.playVideo();
+            }, resumeDelay);
+
+        }, viewDuration);
     }
 }
