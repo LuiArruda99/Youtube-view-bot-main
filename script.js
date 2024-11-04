@@ -1,17 +1,17 @@
 let playerCount = 0;
-const players = [];
 const playbackQualities = ['small', 'medium', 'large', 'hd720'];
+const workers = [];
 
 function generateUrls() {
     const pageNumber = document.getElementById('pageNumber').value;
     const url = document.getElementById('url').value;
-    const autoplay = document.getElementById('autoplay').checked ? 1 : 0;
-    const mute = document.getElementById('mute').checked ? 1 : 0;
+    const autoplay = document.getElementById('autoplay').checked;
+    const mute = document.getElementById('mute').checked;
     const outputDiv = document.getElementById('output');
 
-    // Limpar a saída anterior
-    outputDiv.innerHTML = '';
-    players.length = 0; // Reinicia a lista de players para evitar duplicação
+    outputDiv.innerHTML = ''; // Limpar a saída anterior
+    workers.forEach(worker => worker.terminate()); // Encerrar qualquer worker existente
+    workers.length = 0; // Limpar lista de workers
 
     if (pageNumber < 1 || !url) {
         alert('Por favor, insira um número válido de visualizações e uma URL.');
@@ -22,62 +22,35 @@ function generateUrls() {
     if (youtubeMatch) {
         const videoId = youtubeMatch[1];
         for (let i = 0; i < pageNumber; i++) {
-            const iframeContainer = document.createElement('div');
-            iframeContainer.className = 'iframe-container';
-
-            const iframe = document.createElement('div');
-            iframe.id = `player-${playerCount}`;
-            iframeContainer.appendChild(iframe);
-            outputDiv.appendChild(iframeContainer);
-
-            console.log(`Criando player com ID: player-${playerCount}`); // Debug
-
-            const player = new YT.Player(`player-${playerCount}`, {
-                videoId: videoId,
-                playerVars: {
-                    autoplay: autoplay,
-                    mute: mute
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
-                }
-            });
-
-            players.push(player);
-            playerCount++;
+            createWorkerSession(videoId, autoplay, mute, i, outputDiv);
         }
     } else {
         alert("URL do YouTube inválida.");
     }
 }
 
-function onPlayerReady(event) {
-    const playDelay = Math.floor(Math.random() * 5000) + 2000; // 2 a 7 segundos
-    console.log(`Reproduzindo após ${playDelay / 1000} segundos`); // Debug
-    setTimeout(() => {
-        event.target.playVideo();
-    }, playDelay);
-}
+function createWorkerSession(videoId, autoplay, mute, index, outputDiv) {
+    const sessionDuration = Math.floor(Math.random() * 20000) + 10000; // 10-30 seconds per session
+    const worker = new Worker('sessionWorker.js');
 
-function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.PLAYING) {
-        const quality = playbackQualities[Math.floor(Math.random() * playbackQualities.length)];
-        event.target.setPlaybackQuality(quality);
-        console.log(`Qualidade de reprodução definida para: ${quality}`); // Debug
+    const iframeContainer = document.createElement('div');
+    iframeContainer.className = 'iframe-container';
+    iframeContainer.id = `player-${index}`;
+    outputDiv.appendChild(iframeContainer);
 
-        const viewDuration = Math.floor(Math.random() * 20000) + 10000; // 10 a 30 segundos
-        console.log(`Tempo de visualização simulado: ${viewDuration / 1000} segundos`); // Debug
-        setTimeout(() => {
-            event.target.pauseVideo();
-            console.log('Vídeo pausado'); // Debug
+    worker.postMessage({
+        videoId: videoId,
+        mute: mute,
+        autoplay: autoplay,
+        sessionDuration: sessionDuration,
+        playerId: `player-${index}`
+    });
 
-            const resumeDelay = Math.floor(Math.random() * 5000) + 2000; // 2 a 7 segundos
-            setTimeout(() => {
-                event.target.playVideo();
-                console.log('Vídeo retomado'); // Debug
-            }, resumeDelay);
+    worker.onmessage = (event) => {
+        if (event.data.status === 'done') {
+            outputDiv.removeChild(iframeContainer); // Remove player after session ends
+        }
+    };
 
-        }, viewDuration);
-    }
+    workers.push(worker);
 }
